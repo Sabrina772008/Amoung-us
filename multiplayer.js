@@ -44,6 +44,10 @@
         return;
       }
       this.url = serverUrl();
+      if (/\.github\.io$/i.test(location.hostname) && this.url === location.origin) {
+        this.setStatus('offline', 'The game server address is missing. Put your Render address in config.js (SERVER_URL).');
+        return;
+      }
       this.setStatus('connecting');
       const s = io(this.url, {
         transports: ['websocket', 'polling'],
