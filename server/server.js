@@ -15,6 +15,8 @@
  *   TURN_URLS         – alternative: comma separated TURN urls
  *   TURN_USERNAME     – username for TURN_URLS
  *   TURN_CREDENTIAL   – password for TURN_URLS
+ *   DAILY_API_KEY     – your Daily (daily.co) API key, for the video faces bar
+ *                       (kept secret on the server; video is off without it)
  */
 'use strict';
 
@@ -75,6 +77,27 @@ function num(v, d) { v = Number(v); return Number.isFinite(v) ? v : d; }
 /* ------------------------------------------------------------------ */
 /* Core game logic – works with any Socket.IO-like `io` object          */
 /* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+/* Daily video chat (the little faces bar)                              */
+/* ------------------------------------------------------------------ */
+// Each game room gets its own private Daily room. Players get a personal
+// "meeting token" from this server, so the Daily API key never leaves it.
+const DAILY_API = 'https://api.daily.co/v1';
+const DAILY_HOURS = 6;  // a video room lasts at most this long
+
+function dailyEnabled() { return !!process.env.DAILY_API_KEY; }
+
+async function dailyApi(method, apiPath, body) {
+  const r = await fetch(DAILY_API + apiPath, {
+    method,
+    headers: { Authorization: 'Bearer ' + process.env.DAILY_API_KEY, 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.info || data.error || ('Daily answered ' + r.status));
+  return data;
+}
+
 function createGameServer(io) {
   const rooms = new Map();          // code -> room
   const socketsById = new Map();    // socket.id -> socket
@@ -112,7 +135,28 @@ function createGameServer(io) {
     return room;
   }
 
+  // Make (once) the private Daily video room for this game room
+  function ensureDailyRoom(room) {
+    if (room.daily) return room.daily;
+    const name = 'starbeans-' + room.code.toLowerCase() + '-' + Math.random().toString(36).slice(2, 8);
+    room.daily = dailyApi('POST', '/rooms', {
+      name,
+      privacy: 'private',
+      properties: {
+        exp: Math.floor(Date.now() / 1000) + DAILY_HOURS * 3600,
+        eject_at_room_exp: true,
+        max_participants: SETTINGS.MAX_PLAYERS * 2,  // room for quick reconnects
+        start_audio_off: true,                       // voice chat stays in the game
+      },
+    }).catch((e) => { room.daily = null; throw e; });
+    return room.daily;
+  }
+
   function deleteRoom(room) {
+    if (room.daily) {
+      room.daily.then(d => dailyApi('DELETE', '/rooms/' + encodeURIComponent(d.name))).catch(() => {});
+      room.daily = null;
+    }
     clearInterval(room.timer);
     for (const p of room.players.values()) if (p.graceTimer) clearTimeout(p.graceTimer);
     rooms.delete(room.code);
@@ -639,6 +683,29 @@ function createGameServer(io) {
       maybeAllVoted(room);
     });
 
+    // Video faces bar: hand this player a Daily room address + personal pass
+    socket.on('video-join', async (_, ack) => {
+      const { room, p } = ctx();
+      if (!room) return reply(ack, { ok: false, error: 'Join a room first.' });
+      if (!dailyEnabled()) return reply(ack, { ok: false, off: true, error: 'Video chat is not set up on the server (DAILY_API_KEY).' });
+      try {
+        const d = await ensureDailyRoom(room);
+        const t = await dailyApi('POST', '/meeting-tokens', {
+          properties: {
+            room_name: d.name,
+            user_id: p.id,
+            user_name: p.name,
+            exp: Math.floor(Date.now() / 1000) + DAILY_HOURS * 3600,
+            start_audio_off: true,
+          },
+        });
+        reply(ack, { ok: true, url: d.url, token: t.token });
+      } catch (e) {
+        console.warn('Daily video error:', e.message);
+        reply(ack, { ok: false, error: 'Video chat could not start. Try again in a moment.' });
+      }
+    });
+
     // WebRTC signaling relay: forward offers/answers/ICE candidates to one player in the same room
     socket.on('rtc-signal', (d) => {
       const { room, p } = ctx();
@@ -725,7 +792,7 @@ function startHttpServer() {
     setCors(req, res);
     if (url.pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size }));
+      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size, video: dailyEnabled() }));
     }
     if (url.pathname === '/ice-servers') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
