@@ -202,7 +202,6 @@ function createGameServer(io) {
         exp: Math.floor(Date.now() / 1000) + DAILY_HOURS * 3600,
         eject_at_room_exp: true,
         max_participants: SETTINGS.MAX_PLAYERS * 2,  // room for quick reconnects
-        start_audio_off: true,                       // voice chat stays in the game
       },
     }).catch((e) => { room.daily = null; throw e; });
     return room.daily;
@@ -795,7 +794,6 @@ function createGameServer(io) {
             user_id: p.id,
             user_name: p.name,
             exp: Math.floor(Date.now() / 1000) + DAILY_HOURS * 3600,
-            start_audio_off: true,
           },
         });
         reply(ack, { ok: true, url: d.url, token: t.token });
