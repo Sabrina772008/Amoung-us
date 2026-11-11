@@ -17,6 +17,11 @@
  *   TURN_CREDENTIAL   – password for TURN_URLS
  *   DAILY_API_KEY     – your Daily (daily.co) API key, for the video faces bar
  *                       (kept secret on the server; video is off without it)
+ *   PLAYER_ACCOUNTS   – personal logins, one per cousin, as  Name:password  pairs
+ *                       separated by commas, e.g.  "Sabrina:moon42, Ali:rocket7"
+ *                       When this is set, everyone must log in to play.
+ *                       Leave it empty to play without logins.
+ *   LOGIN_SECRET      – optional: any long random text. Changing it logs everyone out.
  */
 'use strict';
 
@@ -73,6 +78,57 @@ function cleanName(n) {
 function cleanCode(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); }
 function cleanId(id) { return String(id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40); }
 function num(v, d) { v = Number(v); return Number.isFinite(v) ? v : d; }
+
+/* ------------------------------------------------------------------ */
+/* Personal logins (accounts live in the PLAYER_ACCOUNTS setting)       */
+/* ------------------------------------------------------------------ */
+const crypto = require('crypto');
+const LOGIN_DAYS = 60;  // stay logged in this long on each phone/tablet
+
+function loadAccounts() {
+  const list = new Map();  // lower-case name -> { name, password }
+  String(process.env.PLAYER_ACCOUNTS || '').split(',').forEach((pair) => {
+    const i = pair.indexOf(':');
+    if (i < 1) return;
+    const name = cleanName(pair.slice(0, i));
+    const password = pair.slice(i + 1).trim();
+    if (name && password) list.set(name.toLowerCase(), { name, password });
+  });
+  return list;
+}
+const ACCOUNTS = loadAccounts();
+function loginEnabled() { return ACCOUNTS.size > 0; }
+// The signing key changes if the accounts list changes, so new passwords log old phones out
+const LOGIN_KEY = crypto.createHash('sha256')
+  .update('star-beans|' + (process.env.LOGIN_SECRET || '') + '|' + (process.env.PLAYER_ACCOUNTS || '')).digest();
+
+function sameText(a, b) {
+  const x = crypto.createHash('sha256').update(String(a)).digest();
+  const y = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(x, y);
+}
+function signToken(user) {
+  const body = Buffer.from(JSON.stringify({ u: user, exp: Date.now() + LOGIN_DAYS * 86400000 })).toString('base64url');
+  const sig = crypto.createHmac('sha256', LOGIN_KEY).update(body).digest('base64url');
+  return body + '.' + sig;
+}
+// returns the account for a login pass (token), or null
+function checkToken(token) {
+  if (!loginEnabled() || typeof token !== 'string' || token.length > 600) return null;
+  const [body, sig] = token.split('.');
+  if (!body || !sig) return null;
+  const good = crypto.createHmac('sha256', LOGIN_KEY).update(body).digest('base64url');
+  if (!sameText(sig, good)) return null;
+  try {
+    const d = JSON.parse(Buffer.from(body, 'base64url').toString());
+    if (!d || d.exp < Date.now()) return null;
+    return ACCOUNTS.get(String(d.u).toLowerCase()) || null;
+  } catch (e) { return null; }
+}
+// each account always gets the same seat id, so it can rejoin from any device
+function accountPlayerId(acc) {
+  return 'u-' + crypto.createHash('sha256').update(acc.name.toLowerCase()).digest('hex').slice(0, 16);
+}
 
 /* ------------------------------------------------------------------ */
 /* Core game logic – works with any Socket.IO-like `io` object          */
@@ -482,6 +538,42 @@ function createGameServer(io) {
     };
     const reply = (ack, data) => { if (typeof ack === 'function') ack(data); };
 
+    // ---- logins ----
+    socket.data.user = checkToken(socket.handshake && socket.handshake.auth && socket.handshake.auth.token);
+    socket.data.loginFails = 0;
+    const loginState = () => ({ required: loginEnabled(), name: socket.data.user ? socket.data.user.name : null });
+    socket.emit('login-state', loginState());
+
+    socket.on('login', (data, ack) => {
+      data = data || {};
+      if (!loginEnabled()) return reply(ack, { ok: false, error: 'Logins are not switched on.' });
+      if (socket.data.loginFails >= 5) return reply(ack, { ok: false, error: 'Too many tries. Wait a minute, then reload the page.' });
+      const acc = ACCOUNTS.get(cleanName(data.name).toLowerCase());
+      const ok = acc && sameText(String(data.password || ''), acc.password);
+      if (!ok) {
+        socket.data.loginFails++;
+        setTimeout(() => reply(ack, { ok: false, error: 'Name or password is wrong. Check with whoever set up the game.' }), 600);
+        return;
+      }
+      socket.data.loginFails = 0;
+      socket.data.user = acc;
+      reply(ack, { ok: true, name: acc.name, token: signToken(acc.name) });
+      socket.emit('login-state', loginState());
+    });
+    socket.on('logout', (_, ack) => {
+      leaveCurrent();
+      socket.data.user = null;
+      reply(ack, { ok: true });
+      socket.emit('login-state', loginState());
+    });
+    // when logins are on: you must be logged in, and your name + seat come from your account
+    function who(data) {
+      if (!loginEnabled()) return { pid: cleanId(data.playerId), name: cleanName(data.name) };
+      const acc = socket.data.user;
+      if (!acc) return { error: 'Please log in first.', needLogin: true };
+      return { pid: accountPlayerId(acc), name: acc.name };
+    }
+
     function attach(room, p) {
       if (p.graceTimer) { clearTimeout(p.graceTimer); p.graceTimer = null; }
       const old = p.socketId && socketsById.get(p.socketId);
@@ -496,8 +588,10 @@ function createGameServer(io) {
 
     socket.on('create-room', (data, ack) => {
       data = data || {};
-      const pid = cleanId(data.playerId);
-      const name = cleanName(data.name);
+      const me = who(data);
+      if (me.error) return reply(ack, { ok: false, error: me.error, needLogin: me.needLogin });
+      const pid = me.pid;
+      const name = me.name;
       if (!pid) return reply(ack, { ok: false, error: 'Missing player id.' });
       if (!name) return reply(ack, { ok: false, error: 'Please type your name first.' });
       leaveCurrent();
@@ -515,7 +609,9 @@ function createGameServer(io) {
     socket.on('join-room', (data, ack) => {
       data = data || {};
       const code = cleanCode(data.code);
-      const pid = cleanId(data.playerId);
+      const me = who(data);
+      if (me.error) return reply(ack, { ok: false, error: me.error, needLogin: me.needLogin });
+      const pid = me.pid;
       const room = rooms.get(code);
       if (!room) return reply(ack, { ok: false, error: 'Room not found. Check the code.' });
       if (!pid) return reply(ack, { ok: false, error: 'Missing player id.' });
@@ -528,7 +624,7 @@ function createGameServer(io) {
         sendRoom(room);
         return;
       }
-      const name = cleanName(data.name);
+      const name = me.name;
       if (!name) return reply(ack, { ok: false, error: 'Please type your name first.' });
       if (room.phase !== 'lobby') return reply(ack, { ok: false, error: 'That game has already started. Ask the admin to end it, then join.' });
       if (room.players.size >= SETTINGS.MAX_PLAYERS) return reply(ack, { ok: false, error: 'Room is full (5 players max).' });
@@ -553,7 +649,10 @@ function createGameServer(io) {
       if (!room) return reply(ack, { ok: false, error: 'Not in a room.' });
       if (room.phase !== 'lobby') return reply(ack, { ok: false, error: 'You can only change this in the lobby.' });
       data = data || {};
-      if (data.name !== undefined) {
+      if (data.name !== undefined && loginEnabled() && cleanName(data.name) !== p.name) {
+        return reply(ack, { ok: false, error: 'Your name comes from your login.' });
+      }
+      if (data.name !== undefined && !loginEnabled()) {
         const n = cleanName(data.name);
         if (!n) return reply(ack, { ok: false, error: 'Name cannot be empty.' });
         p.name = uniqueName(room, n, p.id);
@@ -792,7 +891,7 @@ function startHttpServer() {
     setCors(req, res);
     if (url.pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size, video: dailyEnabled() }));
+      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size, video: dailyEnabled(), login: loginEnabled() }));
     }
     if (url.pathname === '/ice-servers') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
