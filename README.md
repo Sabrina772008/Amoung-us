@@ -16,14 +16,14 @@ the Impostor tries to eliminate the crew without getting caught.
         │
         └──── secure WebSocket (wss://) ────►  Render (server/server.js, Node.js + Socket.IO)
         │
-        └──── WebRTC voice, player to player (with TURN relay if needed)
+        └──── Daily video call (see + hear everyone), private room per game
 ```
 
 * **GitHub Pages** only hosts the game files. It can't run the multiplayer server.
 * **Render** (or any host that supports WebSockets) runs `server/server.js`. It runs rooms,
   roles, tasks, meetings and votes, and passes voice-chat setup messages between players.
-* **Voice chat** goes directly between players with WebRTC. On some home or mobile networks it
-  needs a **TURN** relay. The server hands out TURN details, so no secrets go in the game files.
+* **Video call** runs on Daily. The server makes a private Daily room per game and hands each
+  player a pass, so the Daily API key never goes in the game files.
 
 ## Files
 
@@ -36,8 +36,8 @@ the Impostor tries to eliminate the crew without getting caught.
 | `art.js` | Draws the cute bean astronauts |
 | `tasks.js` | Task mini-games (wires, numbers, hold, tap targets) |
 | `multiplayer.js` | Connects to the server and reconnects if the connection drops |
-| `voice.js` | Microphone voice chat (WebRTC) |
-| `video.js` | Video faces bar (Daily) – little camera bubbles of everyone |
+| `voice.js` | Small bridge: the game's mic buttons control the video call's mic |
+| `video.js` | Video call (Daily) – see and hear everyone in the room |
 | `game.js` | Main game: login, lobby, controls, drawing, meetings, voting, win/lose screens |
 | `server/server.js` | The multiplayer server |
 | `server/package.json` | Tells the host what the server needs (Socket.IO) |
@@ -52,8 +52,7 @@ the Impostor tries to eliminate the crew without getting caught.
 5. **Impostor:** get close to a crewmate and tap **ELIMINATE** (there's a cooldown).
 6. Found an eliminated crewmate? Tap **REPORT**. Suspicious? Press the red **emergency button**
    in the Cafeteria (once per player per game).
-7. In meetings, talk through your microphones, then vote (or skip). Ghosts can't vote,
-   and living players can't hear them.
+7. In meetings, talk it over on the video call, then vote (or skip). Ghosts can't vote.
 8. The crew wins by finishing every task or voting out the Impostor. The Impostor wins by
    eliminating the crew.
 
@@ -100,12 +99,17 @@ The chat guides you through each step. Here's the short version:
 * **Log out** is at the top of the home screen.
 * 5 wrong passwords in a row and that page has to be reloaded before trying again.
 
-### Video faces bar
+### Video call
 
-A row of round camera bubbles sits at the bottom of the screen (at the top during meetings).
-Tap 📷/🚫 to turn your camera on or off (it starts **off**), and ✕ to shrink the bar.
-It is video only – talking still happens through the game's voice chat in meetings.
-Players without a camera on show their bean instead.
+Everyone in a room is in one private video call (Daily): you can **see and hear each other
+the whole time** – in the lobby, while playing and in meetings.
+
+* The bar at the bottom (at the top during meetings) has 🎤 mic on/off, 📷 camera on/off and
+  ✕ to shrink it (sound keeps playing when it's shrunk).
+* Mic and camera start **on**; the browser asks for permission the first time.
+* Whoever is talking gets a green glow. 🔇 shows who is muted. No camera? Their bean shows instead.
+* On iPhone/iPad, if a blue 🔊 button appears, tap it (or anywhere) to hear everyone.
+* The lobby **Allow Mic** and meeting **Mute** buttons control the same call mic.
 
 ### Free Render servers go to sleep
 

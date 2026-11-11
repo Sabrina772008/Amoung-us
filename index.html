@@ -209,11 +209,13 @@
   <div id="toasts"></div>
   <div id="voice-audio" hidden></div>
 
-  <!-- video faces bar (Daily) -->
+  <!-- video call bar (Daily): faces + sound -->
   <div id="video-bar" class="video-bar hidden">
-    <button id="video-cam" class="video-btn off" aria-label="Turn camera on">🚫</button>
+    <button id="video-mic" class="video-btn" aria-label="Mute microphone">🎤</button>
+    <button id="video-cam" class="video-btn" aria-label="Turn camera off">📷</button>
     <div id="video-tiles" class="video-tiles"></div>
     <span id="video-status" class="video-status hidden"></span>
+    <button id="video-sound" class="video-btn sound hidden" aria-label="Tap to hear everyone">🔊</button>
     <button id="video-hide" class="video-btn small" aria-label="Hide faces">✕</button>
   </div>
 

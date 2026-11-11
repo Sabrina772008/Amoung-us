@@ -393,3 +393,13 @@ body.video-meeting .video-tile { --size: clamp(40px, 9vmin, 56px); }
 .login-box .big-btn { width: 100%; margin-top: 14px; }
 .who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; margin-bottom: 4px; }
 .who-row .link-btn { margin-top: 0; text-decoration: underline; }
+
+/* ---------- video call: talking + muted ---------- */
+.video-tile audio { display: none; }
+.video-tile.speaking { box-shadow: 0 0 0 3px #4ade80, 0 0 14px #4ade80; }
+.video-tile.muted::after {
+  content: '🔇'; position: absolute; top: 1px; right: 50%; transform: translateX(50%);
+  font-size: 11px; line-height: 1; background: rgba(0, 0, 0, 0.6); border-radius: 8px; padding: 2px 3px;
+}
+.video-btn.sound { background: #3b82f6; animation: pulse-sound 1.2s ease-in-out infinite; }
+@keyframes pulse-sound { 50% { transform: scale(1.12); } }
