@@ -755,6 +755,19 @@ function startHttpServer() {
   });
   const game = createGameServer(io);
   server.listen(PORT, () => console.log(`Star Beans server listening on port ${PORT}`));
+
+  // Keep-awake: free Render servers fall asleep after ~15 minutes with no visitors.
+  // Render tells the server its own public address (RENDER_EXTERNAL_URL), so every
+  // 10 minutes the server visits its own /health page. That counts as a visitor,
+  // so it never falls asleep. (Set KEEP_AWAKE=off on Render to switch this off.)
+  const selfUrl = process.env.KEEP_AWAKE_URL || process.env.RENDER_EXTERNAL_URL;
+  if (selfUrl && process.env.KEEP_AWAKE !== 'off' && typeof fetch === 'function') {
+    const ping = () => fetch(selfUrl.replace(/\/+$/, '') + '/health', { cache: 'no-store' })
+      .then(r => console.log('Keep-awake ping:', r.status))
+      .catch(e => console.warn('Keep-awake ping failed:', e.message));
+    setInterval(ping, 10 * 60 * 1000);
+    setTimeout(ping, 30 * 1000);
+  }
 }
 
 if (typeof require !== 'undefined' && typeof module !== 'undefined' && require.main === module) {
