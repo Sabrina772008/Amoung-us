@@ -192,6 +192,14 @@
   <div id="toasts"></div>
   <div id="voice-audio" hidden></div>
 
+  <!-- video faces bar (Daily) -->
+  <div id="video-bar" class="video-bar hidden">
+    <button id="video-cam" class="video-btn off" aria-label="Turn camera on">🚫</button>
+    <div id="video-tiles" class="video-tiles"></div>
+    <span id="video-status" class="video-status hidden"></span>
+    <button id="video-hide" class="video-btn small" aria-label="Hide faces">✕</button>
+  </div>
+
   <!-- Socket.IO client library (version matches the server) -->
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
   <script src="./config.js"></script>
@@ -200,6 +208,9 @@
   <script src="./tasks.js"></script>
   <script src="./multiplayer.js"></script>
   <script src="./voice.js"></script>
+  <!-- Daily video library (for the faces bar) -->
+  <script src="https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.94.0/dist/daily.js" crossorigin="anonymous"></script>
+  <script src="./video.js"></script>
   <script src="./game.js"></script>
 </body>
 </html>

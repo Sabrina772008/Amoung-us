@@ -37,6 +37,7 @@ the Impostor tries to eliminate the crew without getting caught.
 | `tasks.js` | Task mini-games (wires, numbers, hold, tap targets) |
 | `multiplayer.js` | Connects to the server and reconnects if the connection drops |
 | `voice.js` | Microphone voice chat (WebRTC) |
+| `video.js` | Video faces bar (Daily) – little camera bubbles of everyone |
 | `game.js` | Main game: lobby, controls, drawing, meetings, voting, win/lose screens |
 | `server/server.js` | The multiplayer server |
 | `server/package.json` | Tells the host what the server needs (Socket.IO) |
@@ -80,6 +81,17 @@ The chat guides you through each step. Here's the short version:
 6. *(Recommended for voice)* Create a free TURN account at [metered.ca](https://www.metered.ca),
    then on Render add `METERED_DOMAIN` (like `yourapp.metered.live`) and `METERED_API_KEY`.
    Never put these in `config.js`.
+
+7. *(For the video faces bar)* Make a free account at [daily.co](https://dashboard.daily.co),
+   go to **Developers** and copy your **API key**. On Render → **Environment**, add
+   `DAILY_API_KEY` = that key. Never put it in `config.js`. Without it the faces bar just stays hidden.
+
+### Video faces bar
+
+A row of round camera bubbles sits at the bottom of the screen (at the top during meetings).
+Tap 📷/🚫 to turn your camera on or off (it starts **off**), and ✕ to shrink the bar.
+It is video only – talking still happens through the game's voice chat in meetings.
+Players without a camera on show their bean instead.
 
 ### Free Render servers go to sleep
 

@@ -235,6 +235,7 @@
     onTap($('leave-btn'), async () => {
       await Net.leaveRoom();
       Voice.closeAll();
+      if (window.Video) Video.leave();
       S.view = null;
       showScreen('home');
     });
@@ -311,6 +312,7 @@
     S.prev = prev;
     S.view = v;
     S.recvAt = performance.now();
+    if (window.Video) Video.update(v);
 
     if (v.phase === 'lobby') {
       showScreen('lobby');
@@ -400,6 +402,7 @@
     toast(msg || 'You left the room');
     S.view = null;
     Voice.closeAll();
+    if (window.Video) Video.leave();
     showScreen('home');
   });
   Net.on('rtc-signal', (d) => Voice.handleSignal(d));

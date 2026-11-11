@@ -342,3 +342,48 @@ input { font-family: inherit; -webkit-user-select: text; user-select: text; }
   #joy-knob { left: 33px; top: 33px; width: 58px; height: 58px; }
 }
 body.in-game #toasts { bottom: auto; top: calc(70px + var(--safe-t)); }
+
+/* ------------------------- video faces bar (Daily) ------------------------- */
+.video-bar {
+  position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+  bottom: calc(10px + var(--safe-b));
+  display: flex; align-items: center; gap: 6px; padding: 5px 6px;
+  background: rgba(10, 14, 35, 0.7); border: 2px solid var(--line); border-radius: 999px;
+  max-width: calc(100vw - 20px); touch-action: manipulation;
+}
+.video-tiles { display: flex; gap: 6px; }
+.video-tile {
+  --size: clamp(46px, 11vmin, 64px);
+  position: relative; width: var(--size); height: var(--size); flex: none;
+  border-radius: 50%; overflow: hidden; border: 3px solid #fff;
+  background: radial-gradient(circle at 50% 35%, var(--bean), #11163a 75%); background-color: #11163a;
+}
+.video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-tile.me video { transform: scaleX(-1); }            /* mirror yourself */
+.video-tile.no-cam video { display: none; }
+.video-tile.no-cam { background-size: 78%; background-position: center 30%; background-repeat: no-repeat; }
+.video-tile.ghost { opacity: 0.45; filter: grayscale(1); }
+.video-name {
+  position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
+  font-size: 10px; font-weight: bold; line-height: 1.4; color: #fff;
+  background: rgba(0, 0, 0, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;
+}
+.video-btn {
+  width: 40px; height: 40px; flex: none; border-radius: 50%; border: none; font-size: 20px;
+  background: rgba(255, 255, 255, 0.18); color: #fff; padding: 0;
+}
+.video-btn.off { background: rgba(255, 71, 87, 0.75); }
+.video-btn.small { width: 30px; height: 30px; font-size: 14px; }
+.video-status { font-size: 16px; }
+.video-bar.collapsed .video-tiles { display: none; }
+
+/* in the lobby: leave space under the cards for the bar */
+body.video-on:not(.in-game) .lobby-wrap { padding-bottom: calc(clamp(46px, 11vmin, 64px) + 34px + var(--safe-b)); }
+/* during meetings, move to the top so the vote buttons stay free */
+body.video-meeting .video-bar { bottom: auto; top: calc(6px + var(--safe-t)); }
+body.video-meeting .video-tile { --size: clamp(40px, 9vmin, 56px); }
+@media (max-height: 430px) {
+  .video-tile, body.video-meeting .video-tile { --size: 42px; }
+  body.video-on:not(.in-game) .lobby-wrap { padding-bottom: calc(76px + var(--safe-b)); }
+  .video-btn { width: 34px; height: 34px; font-size: 17px; }
+}
