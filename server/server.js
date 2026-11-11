@@ -141,12 +141,14 @@ function accountPlayerId(acc) {
 const DAILY_API = 'https://api.daily.co/v1';
 const DAILY_HOURS = 6;  // a video room lasts at most this long
 
-function dailyEnabled() { return !!process.env.DAILY_API_KEY; }
+// tidy up the key in case spaces or quote marks were pasted with it
+const DAILY_KEY = String(process.env.DAILY_API_KEY || '').trim().replace(/^["']+|["']+$/g, '').replace(/^Bearer\s+/i, '').trim();
+function dailyEnabled() { return !!DAILY_KEY; }
 
 async function dailyApi(method, apiPath, body) {
   const r = await fetch(DAILY_API + apiPath, {
     method,
-    headers: { Authorization: 'Bearer ' + process.env.DAILY_API_KEY, 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Bearer ' + DAILY_KEY, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await r.json().catch(() => ({}));
