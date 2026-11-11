@@ -38,7 +38,7 @@ the Impostor tries to eliminate the crew without getting caught.
 | `multiplayer.js` | Connects to the server and reconnects if the connection drops |
 | `voice.js` | Microphone voice chat (WebRTC) |
 | `video.js` | Video faces bar (Daily) – little camera bubbles of everyone |
-| `game.js` | Main game: lobby, controls, drawing, meetings, voting, win/lose screens |
+| `game.js` | Main game: login, lobby, controls, drawing, meetings, voting, win/lose screens |
 | `server/server.js` | The multiplayer server |
 | `server/package.json` | Tells the host what the server needs (Socket.IO) |
 
@@ -85,6 +85,20 @@ The chat guides you through each step. Here's the short version:
 7. *(For the video faces bar)* Make a free account at [daily.co](https://dashboard.daily.co),
    go to **Developers** and copy your **API key**. On Render → **Environment**, add
    `DAILY_API_KEY` = that key. Never put it in `config.js`. Without it the faces bar just stays hidden.
+
+8. *(Personal logins)* On Render → **Environment**, add `PLAYER_ACCOUNTS` with one
+   `Name:password` pair per cousin, separated by commas, for example
+   `Sabrina:moon42, Ali:rocket7, Zara:comet9`. Everyone then logs in on the home screen
+   and stays logged in on that phone/tablet. Their game name and video bubble use their
+   login name. To add a cousin or change a password, edit this setting (that logs
+   everyone out once). Leave it empty to play without logins.
+
+### Personal logins
+
+* Each cousin logs in once per device with their name and password.
+* You keep your seat if you switch devices: log in on the other one and join the same code.
+* **Log out** is at the top of the home screen.
+* 5 wrong passwords in a row and that page has to be reloaded before trying again.
 
 ### Video faces bar
 

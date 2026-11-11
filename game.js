@@ -162,7 +162,7 @@
     if (params.get('room')) $('code-input').value = params.get('room').toUpperCase().slice(0, 6);
 
     onTap($('create-btn'), async () => {
-      const name = $('name-input').value.trim();
+      const name = playName();
       if (!name) { setStatus($('home-status'), 'Please type your name first 🙂', true); $('name-input').focus(); return; }
       goFullscreen();
       setBusy(true);
@@ -173,7 +173,7 @@
       setStatus($('home-status'), '');
     });
     onTap($('join-btn'), async () => {
-      const name = $('name-input').value.trim();
+      const name = playName();
       const code = $('code-input').value.trim().toUpperCase();
       if (!name) { setStatus($('home-status'), 'Please type your name first 🙂', true); $('name-input').focus(); return; }
       if (code.length !== 6) { setStatus($('home-status'), 'Room codes have 6 letters/numbers.', true); $('code-input').focus(); return; }
@@ -188,6 +188,49 @@
     drawHomeArt();
   }
   function setBusy(b) { $('create-btn').disabled = b; $('join-btn').disabled = b; }
+
+  /* ---------- personal logins ---------- */
+  function playName() { return Net.login.name || $('name-input').value.trim(); }
+  function renderLogin() {
+    const L = Net.login;
+    const needLogin = L.known && L.required && !L.name;
+    $('login-box').classList.toggle('hidden', !needLogin);
+    $('play-box').classList.toggle('hidden', needLogin);
+    $('who-row').classList.toggle('hidden', !L.name);
+    $('name-wrap').classList.toggle('hidden', !!L.name);
+    if (L.name) $('who-name').textContent = L.name;
+    // in the lobby your name comes from your login
+    $('lobby-name').disabled = !!L.name;
+    $('save-name').classList.toggle('hidden', !!L.name);
+  }
+  function initLogin() {
+    $('login-name').value = S.profile.name;
+    $('login-box').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      Sound.unlock();
+      const name = $('login-name').value.trim();
+      const pass = $('login-pass').value;
+      if (!name || !pass) return setStatus($('home-status'), 'Type your name and password 🙂', true);
+      $('login-btn').disabled = true;
+      setStatus($('home-status'), 'Logging in…');
+      const r = await Net.logIn(name, pass);
+      $('login-btn').disabled = false;
+      if (!r.ok) return setStatus($('home-status'), r.error || 'Could not log in.', true);
+      $('login-pass').value = '';
+      S.profile.name = r.name; saveProfile();
+      setStatus($('home-status'), `Welcome, ${r.name}! 🚀`);
+    });
+    onTap($('logout-btn'), async () => {
+      await Net.logOut();
+      Voice.closeAll();
+      if (window.Video) Video.leave();
+      S.view = null;
+      showScreen('home');
+      setStatus($('home-status'), 'Logged out. See you soon! 👋');
+    });
+    Net.on('login', renderLogin);
+    renderLogin();
+  }
 
   function drawHomeArt() {
     const cv = $('home-art'), ctx = cv.getContext('2d');
@@ -1012,6 +1055,7 @@
   /* START                                                                 */
   /* ===================================================================== */
   initHome();
+  initLogin();
   initLobby();
   initGameUi();
   initInput();

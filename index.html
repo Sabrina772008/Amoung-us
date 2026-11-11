@@ -23,14 +23,31 @@
         <canvas id="home-art" width="360" height="200"></canvas>
       </div>
       <div class="home-card card">
-        <label class="field-label" for="name-input">Your name</label>
-        <input id="name-input" class="text-input" maxlength="14" autocomplete="off" placeholder="Type your name">
+        <!-- shown when the server has personal logins switched on -->
+        <form id="login-box" class="login-box hidden" autocomplete="on">
+          <div class="login-title">🔐 Log in to play</div>
+          <label class="field-label" for="login-name">Your name</label>
+          <input id="login-name" name="username" class="text-input" maxlength="14" autocomplete="username" autocapitalize="words" placeholder="Your name">
+          <label class="field-label" for="login-pass">Password</label>
+          <input id="login-pass" name="password" type="password" class="text-input" maxlength="60" autocomplete="current-password" placeholder="Your password">
+          <button id="login-btn" type="submit" class="big-btn green">Log in</button>
+        </form>
+        <div id="play-box">
+        <div id="who-row" class="who-row hidden">
+          <span>👋 Hi, <b id="who-name"></b>!</span>
+          <button id="logout-btn" class="link-btn">Log out</button>
+        </div>
+        <div id="name-wrap">
+          <label class="field-label" for="name-input">Your name</label>
+          <input id="name-input" class="text-input" maxlength="14" autocomplete="off" placeholder="Type your name">
+        </div>
         <div class="field-label">Pick your colour</div>
         <div id="color-grid-home" class="color-grid"></div>
         <button id="create-btn" class="big-btn green">🚀 Create Room</button>
         <div class="join-row">
           <input id="code-input" class="text-input code" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ROOM CODE">
           <button id="join-btn" class="big-btn blue">Join Room</button>
+        </div>
         </div>
         <div id="home-status" class="status-line"></div>
       </div>

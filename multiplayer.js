@@ -26,6 +26,10 @@
     return id;
   }
 
+  // Your login pass, so you stay logged in on this phone/tablet
+  function loadToken() { try { return localStorage.getItem('sb_login') || ''; } catch (e) { return ''; } }
+  function saveToken(t) { try { if (t) localStorage.setItem('sb_login', t); else localStorage.removeItem('sb_login'); } catch (e) { /* ignore */ } }
+
   const listeners = {};
   const Net = {
     socket: null,
@@ -33,6 +37,8 @@
     pid: playerId(),
     roomCode: null,
     status: 'idle',   // idle | connecting | online | offline
+    token: loadToken(),
+    login: { known: false, required: false, name: null },
 
     on(event, fn) { (listeners[event] = listeners[event] || []).push(fn); },
     fire(event, data) { (listeners[event] || []).forEach(fn => fn(data)); },
@@ -55,6 +61,7 @@
         reconnectionDelay: 800,
         reconnectionDelayMax: 4000,
         timeout: 20000,
+        auth: (cb) => cb({ token: this.token }),   // sent again on every reconnect
       });
       this.socket = s;
       s.on('connect', () => {
@@ -68,6 +75,12 @@
       });
       s.on('disconnect', () => this.setStatus('offline'));
       s.on('connect_error', () => this.setStatus('offline', 'Can’t reach the game server yet. If it was asleep it can take up to a minute to wake up…'));
+      s.on('login-state', (st) => {
+        // the server forgot our pass (passwords changed, or it expired)
+        if (st.required && !st.name && this.token) { this.token = ''; saveToken(''); }
+        this.login = { known: true, required: !!st.required, name: st.name || null };
+        this.fire('login', this.login);
+      });
       s.on('room', (v) => { this.roomCode = v.code; this.fire('room', v); });
       s.on('pos', (p) => this.fire('pos', p));
       s.on('event', (e) => this.fire('event', e));
@@ -91,6 +104,17 @@
 
     send(event, data) {
       if (this.socket && this.socket.connected) this.socket.emit(event, data);
+    },
+
+    async logIn(name, password) {
+      const r = await this.request('login', { name, password });
+      if (r.ok) { this.token = r.token; saveToken(r.token); }
+      return r;
+    },
+    async logOut() {
+      this.token = ''; saveToken('');
+      this.roomCode = null;
+      return this.request('logout', {});
     },
 
     async createRoom(name, color) {

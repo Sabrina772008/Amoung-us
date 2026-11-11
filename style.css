@@ -387,3 +387,9 @@ body.video-meeting .video-tile { --size: clamp(40px, 9vmin, 56px); }
   body.video-on:not(.in-game) .lobby-wrap { padding-bottom: calc(76px + var(--safe-b)); }
   .video-btn { width: 34px; height: 34px; font-size: 17px; }
 }
+
+/* ---------- personal logins ---------- */
+.login-title { font-size: 22px; font-weight: bold; text-align: center; margin: 2px 0 6px; }
+.login-box .big-btn { width: 100%; margin-top: 14px; }
+.who-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; margin-bottom: 4px; }
+.who-row .link-btn { margin-top: 0; text-decoration: underline; }
