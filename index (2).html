@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b1026">
+  <title>Star Beans – Space Party Game</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚀%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="stars-bg"></div>
+
+  <!-- ===================== HOME ===================== -->
+  <section id="screen-home" class="screen">
+    <div class="home-wrap">
+      <div class="home-left">
+        <h1 class="logo">Star <span>Beans</span></h1>
+        <p class="tagline">A space party game for 2–5 friends. Who is the impostor?</p>
+        <canvas id="home-art" width="360" height="200"></canvas>
+      </div>
+      <div class="home-card card">
+        <label class="field-label" for="name-input">Your name</label>
+        <input id="name-input" class="text-input" maxlength="14" autocomplete="off" placeholder="Type your name">
+        <div class="field-label">Pick your colour</div>
+        <div id="color-grid-home" class="color-grid"></div>
+        <button id="create-btn" class="big-btn green">🚀 Create Room</button>
+        <div class="join-row">
+          <input id="code-input" class="text-input code" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ROOM CODE">
+          <button id="join-btn" class="big-btn blue">Join Room</button>
+        </div>
+        <div id="home-status" class="status-line"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LOBBY ===================== -->
+  <section id="screen-lobby" class="screen hidden">
+    <div class="lobby-wrap">
+      <div class="card lobby-left">
+        <div class="code-box">
+          <div class="small">ROOM CODE</div>
+          <div id="room-code" class="room-code">------</div>
+          <div class="code-buttons">
+            <button id="copy-code" class="mid-btn">📋 Copy Code</button>
+            <button id="share-code" class="mid-btn hidden">📤 Share</button>
+          </div>
+        </div>
+        <div class="small players-title">PLAYERS <span id="player-count">0/5</span></div>
+        <ul id="player-list" class="player-list"></ul>
+      </div>
+      <div class="card lobby-right">
+        <label class="field-label" for="lobby-name">Your name</label>
+        <div class="row">
+          <input id="lobby-name" class="text-input" maxlength="14" autocomplete="off">
+          <button id="save-name" class="mid-btn">Save</button>
+        </div>
+        <div class="field-label">Your colour</div>
+        <div id="color-grid-lobby" class="color-grid"></div>
+        <div class="row lobby-actions">
+          <button id="ready-btn" class="big-btn green">✋ I'm Ready</button>
+          <button id="mic-btn" class="big-btn purple">🎤 Allow Mic</button>
+        </div>
+        <button id="start-btn" class="big-btn orange hidden">▶ Start Game</button>
+        <div id="lobby-hint" class="status-line"></div>
+        <button id="leave-btn" class="link-btn">← Leave room</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== GAME ===================== -->
+  <section id="screen-game" class="screen hidden">
+    <canvas id="game"></canvas>
+
+    <div id="hud-top-left" class="hud">
+      <div id="role-badge" class="role-badge">CREWMATE</div>
+      <div id="task-panel" class="task-panel">
+        <div class="task-panel-head" id="task-toggle">📋 Tasks <span id="task-count"></span></div>
+        <ul id="task-list"></ul>
+      </div>
+    </div>
+
+    <div id="hud-top-center" class="hud">
+      <div class="progress-label">Crew tasks</div>
+      <div class="progress"><div id="task-bar" class="progress-fill"></div></div>
+      <div id="room-name" class="room-name">Cafeteria</div>
+    </div>
+
+    <div id="hud-top-right" class="hud">
+      <canvas id="mini-map" width="180" height="116"></canvas>
+      <div class="hud-buttons">
+        <button id="fs-btn" class="icon-btn" aria-label="Full screen">⛶</button>
+        <button id="admin-btn" class="icon-btn hidden" aria-label="Admin menu">👑</button>
+      </div>
+    </div>
+
+    <div id="ghost-banner" class="ghost-banner hidden">👻 You are a ghost. Keep doing tasks to help your team!</div>
+
+    <!-- touch controls -->
+    <div id="joy-zone">
+      <div id="joy-base"><div id="joy-knob"></div></div>
+    </div>
+    <div id="action-buttons">
+      <button id="btn-kill" class="action-btn kill hidden"><span class="a-icon">💥</span><span class="a-label">ELIMINATE</span><span class="a-cd"></span></button>
+      <button id="btn-report" class="action-btn report"><span class="a-icon">📢</span><span class="a-label">REPORT</span></button>
+      <button id="btn-use" class="action-btn use"><span class="a-icon">✋</span><span class="a-label">USE</span></button>
+    </div>
+
+    <!-- admin menu -->
+    <div id="admin-menu" class="admin-menu hidden">
+      <div class="admin-title">👑 Admin controls</div>
+      <button id="adm-pause" class="mid-btn">⏸ Pause</button>
+      <button id="adm-resume" class="mid-btn hidden">▶ Resume</button>
+      <button id="adm-restart" class="mid-btn">🔄 Restart round</button>
+      <button id="adm-end" class="mid-btn red">⏹ End game</button>
+      <button id="adm-close" class="link-btn">Close</button>
+    </div>
+
+    <!-- overlays -->
+    <div id="task-modal" class="overlay hidden"></div>
+
+    <div id="reveal-overlay" class="overlay full hidden">
+      <div class="reveal-inner">
+        <div id="reveal-sub" class="reveal-sub">Shhh…</div>
+        <div id="reveal-title" class="reveal-title">You are a CREWMATE</div>
+        <img id="reveal-avatar" class="reveal-avatar" alt="">
+        <div id="reveal-text" class="reveal-text"></div>
+      </div>
+    </div>
+
+    <div id="meeting-overlay" class="overlay full hidden">
+      <div class="meeting-box">
+        <div class="meeting-head">
+          <div>
+            <div id="meeting-title" class="meeting-title">Emergency Meeting!</div>
+            <div id="meeting-sub" class="meeting-sub"></div>
+          </div>
+          <div id="meeting-timer" class="meeting-timer">30</div>
+        </div>
+        <div id="meeting-cards" class="meeting-cards"></div>
+        <div class="meeting-foot">
+          <div class="voice-controls">
+            <button id="mute-btn" class="mid-btn">🎤 Mute</button>
+            <button id="sound-btn" class="mid-btn hidden">🔊 Tap to hear voices</button>
+            <span id="voice-status" class="voice-status"></span>
+          </div>
+          <div class="skip-wrap">
+            <button id="meeting-admin" class="mid-btn hidden" aria-label="Admin menu">👑</button>
+            <button id="skip-btn" class="mid-btn">⏭ Skip vote</button>
+            <span id="skip-confirm" class="confirm hidden"><button id="skip-yes" class="ok">✔</button><button id="skip-no" class="no">✕</button></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="eject-overlay" class="overlay full space hidden">
+      <canvas id="eject-canvas"></canvas>
+      <div id="eject-text" class="eject-text"></div>
+      <div id="eject-sub" class="eject-sub"></div>
+    </div>
+
+    <div id="end-overlay" class="overlay full hidden">
+      <div class="end-box">
+        <div id="end-title" class="end-title">VICTORY</div>
+        <div id="end-sub" class="end-sub"></div>
+        <div id="end-impostor" class="end-impostor"></div>
+        <div id="end-admin" class="end-admin">
+          <button id="end-again" class="big-btn green">🔄 Play Again</button>
+          <button id="end-lobby" class="big-btn blue">🏠 Back to Lobby</button>
+        </div>
+        <div id="end-wait" class="status-line">Waiting for the admin…</div>
+      </div>
+    </div>
+
+    <div id="paused-overlay" class="overlay full hidden">
+      <div class="paused-box">
+        <div class="paused-title">⏸ Paused</div>
+        <div class="status-line">The admin paused the game.</div>
+        <button id="paused-resume" class="big-btn green hidden">▶ Resume</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="rotate-overlay">
+    <div class="rotate-icon">📱↻</div>
+    <div>Please turn your device sideways</div>
+  </div>
+  <div id="conn-banner" class="conn-banner hidden">Reconnecting…</div>
+  <div id="toasts"></div>
+  <div id="voice-audio" hidden></div>
+
+  <!-- Socket.IO client library (version matches the server) -->
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
+  <script src="./config.js"></script>
+  <script src="./map.js"></script>
+  <script src="./art.js"></script>
+  <script src="./tasks.js"></script>
+  <script src="./multiplayer.js"></script>
+  <script src="./voice.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>
