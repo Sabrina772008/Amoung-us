@@ -12,5 +12,5 @@
  * Never put passwords or secret keys in this file – everyone can read it.
  */
 window.STAR_BEANS_CONFIG = {
-  SERVER_URL: "",
+  SERVER_URL: "https://star-beans-server.onrender.com",
 };
