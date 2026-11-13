@@ -22,6 +22,9 @@
  *                       When this is set, everyone must log in to play.
  *                       Leave it empty to play without logins.
  *   LOGIN_SECRET      – optional: any long random text. Changing it logs everyone out.
+ *   SUPABASE_URL      – Supabase project address (self sign-up logins). Default: Friend Arcade.
+ *   SUPABASE_KEY      – that project's PUBLISHABLE key (safe to share; never the secret key).
+ *                       Set SUPABASE_URL to "off" to switch Supabase logins off.
  */
 'use strict';
 
@@ -97,7 +100,41 @@ function loadAccounts() {
   return list;
 }
 const ACCOUNTS = loadAccounts();
-function loginEnabled() { return ACCOUNTS.size > 0; }
+// Supabase: cousins make their own accounts. These two values are public
+// (the publishable key is meant to be in web pages), so defaults live here.
+const SUPABASE_URL = (process.env.SUPABASE_URL || 'https://qivxncxpbrjxspicgbls.supabase.co').replace(/\/+$/, '');
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_poHAKWFmGFrkonSkv3-XCA_cmzfkdri';
+function supabaseEnabled() { return /^https:\/\//.test(SUPABASE_URL) && !!SUPABASE_KEY; }
+function loginEnabled() { return supabaseEnabled() || ACCOUNTS.size > 0; }
+function loginMode() { return supabaseEnabled() ? 'supabase' : ACCOUNTS.size ? 'accounts' : 'none'; }
+
+// Ask Supabase who owns this login pass. Remembered for a few minutes.
+const sbCache = new Map();  // token -> { acc, until }
+async function checkSupabaseToken(token) {
+  if (!supabaseEnabled() || typeof token !== 'string' || token.length < 20 || token.length > 4000) return null;
+  const hit = sbCache.get(token);
+  if (hit && hit.until > Date.now()) return hit.acc;
+  try {
+    const r = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    if (!u || !u.id) return null;
+    const meta = u.user_metadata || {};
+    const name = cleanName(meta.display_name || meta.username || meta.name || String(u.email || '').split('@')[0]) || 'Player';
+    const acc = { id: u.id, name };
+    if (sbCache.size > 500) sbCache.clear();
+    sbCache.set(token, { acc, until: Date.now() + 5 * 60000 });
+    return acc;
+  } catch (e) {
+    console.warn('Supabase check failed:', e.message);
+    return null;
+  }
+}
+async function checkAnyToken(token) {
+  if (typeof token !== 'string' || !token) return null;
+  if (token.split('.').length === 3) return checkSupabaseToken(token);  // Supabase pass
+  return checkToken(token);                                             // PLAYER_ACCOUNTS pass
+}
 // The signing key changes if the accounts list changes, so new passwords log old phones out
 const LOGIN_KEY = crypto.createHash('sha256')
   .update('star-beans|' + (process.env.LOGIN_SECRET || '') + '|' + (process.env.PLAYER_ACCOUNTS || '')).digest();
@@ -114,7 +151,7 @@ function signToken(user) {
 }
 // returns the account for a login pass (token), or null
 function checkToken(token) {
-  if (!loginEnabled() || typeof token !== 'string' || token.length > 600) return null;
+  if (!ACCOUNTS.size || typeof token !== 'string' || token.length > 600) return null;
   const [body, sig] = token.split('.');
   if (!body || !sig) return null;
   const good = crypto.createHmac('sha256', LOGIN_KEY).update(body).digest('base64url');
@@ -127,7 +164,8 @@ function checkToken(token) {
 }
 // each account always gets the same seat id, so it can rejoin from any device
 function accountPlayerId(acc) {
-  return 'u-' + crypto.createHash('sha256').update(acc.name.toLowerCase()).digest('hex').slice(0, 16);
+  const key = acc.id ? 'sb:' + acc.id : acc.name.toLowerCase();
+  return 'u-' + crypto.createHash('sha256').update(key).digest('hex').slice(0, 16);
 }
 
 /* ------------------------------------------------------------------ */
@@ -540,14 +578,27 @@ function createGameServer(io) {
     const reply = (ack, data) => { if (typeof ack === 'function') ack(data); };
 
     // ---- logins ----
-    socket.data.user = checkToken(socket.handshake && socket.handshake.auth && socket.handshake.auth.token);
+    socket.data.user = null;
     socket.data.loginFails = 0;
-    const loginState = () => ({ required: loginEnabled(), name: socket.data.user ? socket.data.user.name : null });
-    socket.emit('login-state', loginState());
+    const loginState = () => ({ required: loginEnabled(), mode: loginMode(), name: socket.data.user ? socket.data.user.name : null });
+    // check the login pass the browser sent; room requests wait for this
+    socket.data.authReady = checkAnyToken(socket.handshake && socket.handshake.auth && socket.handshake.auth.token)
+      .then((acc) => { socket.data.user = acc; }, () => {})
+      .then(() => socket.emit('login-state', loginState()));
+
+    // Supabase logins happen in the browser; then it hands us the pass to check
+    socket.on('auth', async (data, ack) => {
+      const acc = await checkSupabaseToken(data && data.token);
+      if (!acc) return reply(ack, { ok: false, error: 'Could not log in. Try again.' });
+      const before = socket.data.user;
+      socket.data.user = acc;
+      reply(ack, { ok: true, name: acc.name });
+      if (!before || before.name !== acc.name) socket.emit('login-state', loginState());
+    });
 
     socket.on('login', (data, ack) => {
       data = data || {};
-      if (!loginEnabled()) return reply(ack, { ok: false, error: 'Logins are not switched on.' });
+      if (!ACCOUNTS.size) return reply(ack, { ok: false, error: 'Logins are not switched on.' });
       if (socket.data.loginFails >= 5) return reply(ack, { ok: false, error: 'Too many tries. Wait a minute, then reload the page.' });
       const acc = ACCOUNTS.get(cleanName(data.name).toLowerCase());
       const ok = acc && sameText(String(data.password || ''), acc.password);
@@ -587,7 +638,8 @@ function createGameServer(io) {
       socket.join(room.code);
     }
 
-    socket.on('create-room', (data, ack) => {
+    socket.on('create-room', async (data, ack) => {
+      await socket.data.authReady;
       data = data || {};
       const me = who(data);
       if (me.error) return reply(ack, { ok: false, error: me.error, needLogin: me.needLogin });
@@ -607,7 +659,8 @@ function createGameServer(io) {
       sendRoom(room);
     });
 
-    socket.on('join-room', (data, ack) => {
+    socket.on('join-room', async (data, ack) => {
+      await socket.data.authReady;
       data = data || {};
       const code = cleanCode(data.code);
       const me = who(data);
@@ -891,7 +944,7 @@ function startHttpServer() {
     setCors(req, res);
     if (url.pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size, video: dailyEnabled(), login: loginEnabled() }));
+      return res.end(JSON.stringify({ ok: true, game: 'Star Beans', rooms: game.rooms.size, video: dailyEnabled(), login: loginEnabled(), loginMode: loginMode() }));
     }
     if (url.pathname === '/ice-servers') {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
