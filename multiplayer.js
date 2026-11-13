@@ -30,6 +30,26 @@
   function loadToken() { try { return localStorage.getItem('sb_login') || ''; } catch (e) { return ''; } }
   function saveToken(t) { try { if (t) localStorage.setItem('sb_login', t); else localStorage.removeItem('sb_login'); } catch (e) { /* ignore */ } }
 
+  // Supabase: cousins make their own accounts. Names become a pretend email
+  // address (the same style Friend Arcade uses), so nobody needs a real email.
+  const CFG = window.STAR_BEANS_CONFIG || {};
+  const sb = (window.supabase && CFG.SUPABASE_URL && CFG.SUPABASE_KEY)
+    ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } })
+    : null;
+  function nameToEmail(name) {
+    const slug = String(name || '').trim().toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '');
+    return slug ? slug + '@players.friendarcade.app' : '';
+  }
+  function friendlyError(msg) {
+    msg = String(msg || '');
+    if (/already registered|already exists/i.test(msg)) return 'That name is already taken. Try logging in, or pick another name.';
+    if (/invalid login|invalid credentials/i.test(msg)) return 'Name or password is wrong.';
+    if (/at least 6|password should be/i.test(msg)) return 'Passwords need at least 6 letters or numbers.';
+    if (/rate limit|too many/i.test(msg)) return 'Too many tries. Wait a minute and try again.';
+    if (/email/i.test(msg)) return 'Names can only use letters, numbers, dots and dashes.';
+    return msg || 'Something went wrong. Try again.';
+  }
+
   const listeners = {};
   const Net = {
     socket: null,
@@ -38,6 +58,7 @@
     roomCode: null,
     status: 'idle',   // idle | connecting | online | offline
     token: loadToken(),
+    sb,
     login: { known: false, required: false, name: null },
 
     on(event, fn) { (listeners[event] = listeners[event] || []).push(fn); },
@@ -61,7 +82,12 @@
         reconnectionDelay: 800,
         reconnectionDelayMax: 4000,
         timeout: 20000,
-        auth: (cb) => cb({ token: this.token }),   // sent again on every reconnect
+        // our login pass, sent again on every reconnect
+        auth: (cb) => {
+          if (!sb) return cb({ token: this.token });
+          sb.auth.getSession().then(({ data }) => cb({ token: (data && data.session && data.session.access_token) || this.token }))
+            .catch(() => cb({ token: this.token }));
+        },
       });
       this.socket = s;
       s.on('connect', () => {
@@ -77,8 +103,8 @@
       s.on('connect_error', () => this.setStatus('offline', 'Can’t reach the game server yet. If it was asleep it can take up to a minute to wake up…'));
       s.on('login-state', (st) => {
         // the server forgot our pass (passwords changed, or it expired)
-        if (st.required && !st.name && this.token) { this.token = ''; saveToken(''); }
-        this.login = { known: true, required: !!st.required, name: st.name || null };
+        if (st.required && !st.name && this.token && st.mode !== 'supabase') { this.token = ''; saveToken(''); }
+        this.login = { known: true, required: !!st.required, mode: st.mode || 'accounts', name: st.name || null };
         this.fire('login', this.login);
       });
       s.on('room', (v) => { this.roomCode = v.code; this.fire('room', v); });
@@ -107,12 +133,31 @@
     },
 
     async logIn(name, password) {
+      if (this.login.mode === 'supabase' && sb) {
+        const email = nameToEmail(name);
+        if (!email) return { ok: false, error: 'Type your name.' };
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error || !data.session) return { ok: false, error: friendlyError(error && error.message) };
+        return this.request('auth', { token: data.session.access_token });
+      }
       const r = await this.request('login', { name, password });
       if (r.ok) { this.token = r.token; saveToken(r.token); }
       return r;
     },
+    async signUp(name, password) {
+      if (!sb) return { ok: false, error: 'Sign-up is not available.' };
+      name = String(name || '').trim().slice(0, 14);
+      const email = nameToEmail(name);
+      if (!email) return { ok: false, error: 'Type a name.' };
+      if (String(password || '').length < 6) return { ok: false, error: 'Passwords need at least 6 letters or numbers.' };
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { display_name: name, username: name } } });
+      if (error) return { ok: false, error: friendlyError(error.message) };
+      if (!data.session) return { ok: false, error: 'Account made, but it needs checking first. Ask the grown-up who runs the game.' };
+      return this.request('auth', { token: data.session.access_token });
+    },
     async logOut() {
       this.token = ''; saveToken('');
+      if (sb) { try { await sb.auth.signOut(); } catch (e) { /* ignore */ } }
       this.roomCode = null;
       return this.request('logout', {});
     },
@@ -143,6 +188,14 @@
       return [{ urls: ['stun:stun.l.google.com:19302'] }];
     },
   };
+
+  if (sb) {
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && session && Net.socket && Net.socket.connected && Net.login.name) {
+        Net.request('auth', { token: session.access_token });
+      }
+    });
+  }
 
   window.Net = Net;
 })();

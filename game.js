@@ -202,6 +202,15 @@
     // in the lobby your name comes from your login
     $('lobby-name').disabled = !!L.name;
     $('save-name').classList.toggle('hidden', !!L.name);
+    // Supabase logins: cousins can make their own account
+    const canSignUp = L.mode === 'supabase';
+    if (!canSignUp) S.signup = false;
+    $('signup-toggle').classList.toggle('hidden', !canSignUp);
+    $('login-title').textContent = S.signup ? '✨ Make your account' : '🔐 Log in to play';
+    $('login-btn').textContent = S.signup ? 'Create account' : 'Log in';
+    $('signup-toggle').textContent = S.signup ? 'Already have an account? Log in' : 'New here? Create an account';
+    $('login-pass').placeholder = S.signup ? 'Pick a password (6+ letters/numbers)' : 'Your password';
+    $('login-pass').autocomplete = S.signup ? 'new-password' : 'current-password';
   }
   function initLogin() {
     $('login-name').value = S.profile.name;
@@ -212,13 +221,18 @@
       const pass = $('login-pass').value;
       if (!name || !pass) return setStatus($('home-status'), 'Type your name and password 🙂', true);
       $('login-btn').disabled = true;
-      setStatus($('home-status'), 'Logging in…');
-      const r = await Net.logIn(name, pass);
+      setStatus($('home-status'), S.signup ? 'Making your account…' : 'Logging in…');
+      const r = S.signup ? await Net.signUp(name, pass) : await Net.logIn(name, pass);
       $('login-btn').disabled = false;
       if (!r.ok) return setStatus($('home-status'), r.error || 'Could not log in.', true);
       $('login-pass').value = '';
       S.profile.name = r.name; saveProfile();
       setStatus($('home-status'), `Welcome, ${r.name}! 🚀`);
+    });
+    $('signup-toggle').addEventListener('click', () => {
+      S.signup = !S.signup;
+      setStatus($('home-status'), '');
+      renderLogin();
     });
     onTap($('logout-btn'), async () => {
       await Net.logOut();

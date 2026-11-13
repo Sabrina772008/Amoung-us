@@ -10,7 +10,13 @@
  * `node server.js` – then the game connects to the same address it came from.
  *
  * Never put passwords or secret keys in this file – everyone can read it.
+ * (The Supabase "publishable" key below is fine: it is made to be public.)
  */
 window.STAR_BEANS_CONFIG = {
   SERVER_URL: "https://star-beans-server.onrender.com",
+
+  // Supabase (cousins make their own logins). These are PUBLIC values and are
+  // meant to be in web pages. Never put the "secret" key here.
+  SUPABASE_URL: "https://qivxncxpbrjxspicgbls.supabase.co",
+  SUPABASE_KEY: "sb_publishable_poHAKWFmGFrkonSkv3-XCA_cmzfkdri",
 };

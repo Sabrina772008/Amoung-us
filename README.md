@@ -85,19 +85,26 @@ The chat guides you through each step. Here's the short version:
    go to **Developers** and copy your **API key**. On Render → **Environment**, add
    `DAILY_API_KEY` = that key. Never put it in `config.js`. Without it the faces bar just stays hidden.
 
-8. *(Personal logins)* On Render → **Environment**, add `PLAYER_ACCOUNTS` with one
+8. *(Logins)* Supabase logins are already set up (see below). The older option: on Render, add `PLAYER_ACCOUNTS` with one
    `Name:password` pair per cousin, separated by commas, for example
    `Sabrina:moon42, Ali:rocket7, Zara:comet9`. Everyone then logs in on the home screen
    and stays logged in on that phone/tablet. Their game name and video bubble use their
    login name. To add a cousin or change a password, edit this setting (that logs
    everyone out once). Leave it empty to play without logins.
 
-### Personal logins
+### Logins (Supabase)
 
-* Each cousin logs in once per device with their name and password.
-* You keep your seat if you switch devices: log in on the other one and join the same code.
-* **Log out** is at the top of the home screen.
-* 5 wrong passwords in a row and that page has to be reloaded before trying again.
+Logins use the **Friend Arcade** Supabase project, so cousins make their own accounts:
+
+* On the home screen tap **New here? Create an account**, pick a name and a password (6+ characters).
+* Next time just **Log in**. Each phone/tablet remembers you until you tap **Log out**.
+* No email needed: names are stored as `name@players.friendarcade.app`, the same style
+  Friend Arcade uses, so an existing Friend Arcade login works here too.
+* See or remove accounts in Supabase → Friend Arcade → **Authentication → Users**.
+* `config.js` holds the Supabase address and the **publishable** key. That key is meant to be
+  public. Never put the **secret** key in the game files.
+* (Old option: `PLAYER_ACCOUNTS` on Render only applies if Supabase is switched off with
+  `SUPABASE_URL=off`.)
 
 ### Video call
 

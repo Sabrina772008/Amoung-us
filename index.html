@@ -25,12 +25,13 @@
       <div class="home-card card">
         <!-- shown when the server has personal logins switched on -->
         <form id="login-box" class="login-box hidden" autocomplete="on">
-          <div class="login-title">🔐 Log in to play</div>
+          <div id="login-title" class="login-title">🔐 Log in to play</div>
           <label class="field-label" for="login-name">Your name</label>
           <input id="login-name" name="username" class="text-input" maxlength="14" autocomplete="username" autocapitalize="words" placeholder="Your name">
           <label class="field-label" for="login-pass">Password</label>
           <input id="login-pass" name="password" type="password" class="text-input" maxlength="60" autocomplete="current-password" placeholder="Your password">
           <button id="login-btn" type="submit" class="big-btn green">Log in</button>
+          <button id="signup-toggle" type="button" class="link-btn hidden">New here? Create an account</button>
         </form>
         <div id="play-box">
         <div id="who-row" class="who-row hidden">
@@ -221,6 +222,8 @@
 
   <!-- Socket.IO client library (version matches the server) -->
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js" crossorigin="anonymous"></script>
+  <!-- Supabase (logins) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" crossorigin="anonymous"></script>
   <script src="./config.js"></script>
   <script src="./map.js"></script>
   <script src="./art.js"></script>
